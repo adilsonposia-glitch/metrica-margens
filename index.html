@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Gabarito de Margens | 2º trimestre 2026</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,480;9..144,640&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <img class="brand-logo" src="img/logo-abb.jpeg" alt="Adilson Baptista — Inteligência de negócio" />
+        <div class="brand-copy">
+          <p class="eyebrow">Memória de cálculo | Pricing</p>
+          <h1>Gabarito de margens</h1>
+          <p class="period" id="periodoLabel">2º trimestre 2026 | 01/04 a 30/06</p>
+        </div>
+      </div>
+      <div class="cluster-switch" role="tablist" aria-label="Cluster">
+        <button type="button" class="chip active" data-cluster="A" role="tab">Cluster A</button>
+        <button type="button" class="chip" data-cluster="B" role="tab">Cluster B</button>
+      </div>
+      <div class="top-actions">
+        <button type="button" id="btnMercado" class="ghost" title="Carregar faixas de mercado">Mercado</button>
+        <input type="file" id="fileMercado" accept=".csv,text/csv" hidden />
+        <button type="button" id="btnReset" class="ghost">Restaurar</button>
+        <button type="button" id="btnSave" class="ghost" title="Ctrl + S">Salvar alteraçães</button>
+        <button type="button" id="btnExcel" class="primary" title="Ctrl + E">Exportar Excel <kbd>Ctrl E</kbd></button>
+      </div>
+    </header>
+
+    <section class="period-line" role="tablist" aria-label="Periodo">
+      <button type="button" class="chip" data-periodo="T1">1º trimestre</button>
+      <button type="button" class="chip active" data-periodo="T2">2º trimestre</button>
+      <button type="button" class="chip" data-periodo="T12">Total 1º + 2º</button>
+    </section>
+    <section class="lojas-line" id="lojasLine"></section>
+    <section class="kpis" id="kpis"></section>
+    <section class="formula-strip" id="formulaStrip"></section>
+
+    <div class="workspace">
+      <aside class="sim-panel">
+        <h2>Simulador</h2>
+        <p class="hint">Altere os percentuais e clique em Recalcular para ver o impacto no cluster, no departamento, na seção e no grupo. A margem a carregar no ERP é a simulada.</p>
+        <label>Lucro líquido alvo
+          <div class="slide-row">
+            <input type="range" id="simLucro" min="0" max="10" step="0.05" />
+            <input type="number" id="simLucroN" min="0" max="20" step="0.05" />
+            <span>%</span>
+          </div>
+        </label>
+        <label>Despesa loja | Cluster A
+          <div class="slide-row">
+            <input type="range" id="simDespA" min="10" max="35" step="0.01" />
+            <input type="number" id="simDespAN" min="0" max="50" step="0.01" />
+            <span>%</span>
+          </div>
+        </label>
+        <label>Despesa loja | Cluster B
+          <div class="slide-row">
+            <input type="range" id="simDespB" min="10" max="35" step="0.01" />
+            <input type="number" id="simDespBN" min="0" max="50" step="0.01" />
+            <span>%</span>
+          </div>
+        </label>
+        <label>Back office (rateio sobre venda)
+          <div class="slide-row">
+            <input type="range" id="simBO" min="0" max="10" step="0.01" />
+            <input type="number" id="simBON" min="0" max="20" step="0.01" />
+            <span>%</span>
+          </div>
+        </label>
+        <label>Perda / quebra | Cluster A
+          <div class="slide-row">
+            <input type="range" id="simPerdaA" min="0" max="8" step="0.01" />
+            <input type="number" id="simPerdaAN" min="0" max="20" step="0.01" />
+            <span>%</span>
+          </div>
+        </label>
+        <label>Perda / quebra | Cluster B
+          <div class="slide-row">
+            <input type="range" id="simPerdaB" min="0" max="8" step="0.01" />
+            <input type="number" id="simPerdaBN" min="0" max="20" step="0.01" />
+            <span>%</span>
+          </div>
+        </label>
+        <label class="check">
+          <input type="checkbox" id="simFluxo" checked />
+          Proteger geradores de fluxo e compensar no giro
+        </label>
+        <label class="check">
+          <input type="checkbox" id="simPiso" checked />
+          Não regredir o realizado (piso + 2 p.p.; excedente no tráfego da seção)
+        </label>
+        <button type="button" id="btnRecalc" class="btn-recalc">Recalcular</button>
+        <p class="bo-note" id="boNote"></p>
+        <div class="legend">
+          <span><i class="dot below"></i> Abaixo da proposta</span>
+          <span><i class="dot ok"></i> Na faixa +/- 1 p.p.</span>
+          <span><i class="dot above"></i> Acima da proposta</span>
+          <span><i class="dot fluxo"></i> Fluxo (alto valor / pouca qtd)</span>
+          <span><i class="dot lucro"></i> Giro (muita qtd / menor ticket)</span>
+          <span><i class="dot piso"></i> Piso: realizado + 2 p.p.</span>
+          <span><i class="dot trafego"></i> Tráfego da área (recebe excedente)</span>
+        </div>
+      </aside>
+
+      <main class="main">
+        <div class="toolbar">
+          <nav class="crumbs" id="crumbs"></nav>
+          <div class="tools">
+            <input type="search" id="busca" placeholder="Buscar grupo ou subgrupo  /" />
+            <select id="nivelView">
+              <option value="n1">Departamento</option>
+              <option value="n2">Seção</option>
+              <option value="n3">Grupo</option>
+              <option value="n4">Subgrupo</option>
+            </select>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="grid" id="grid">
+            <thead>
+              <tr>
+                <th>Mercadológico</th>
+                <th>Papel</th>
+                <th class="num">Venda</th>
+                <th class="num">Part. %</th>
+                <th class="num">Unitário</th>
+                <th class="num">Perda %</th>
+                <th class="num">Margem real</th>
+                <th class="num">Proposta</th>
+                <th class="num">A carregar</th>
+                <th class="num">Gap p.p.</th>
+                <th class="num">Impacto R$</th>
+              </tr>
+            </thead>
+            <tbody id="gridBody"></tbody>
+          </table>
+        </div>
+        <p class="table-foot" id="tableFoot"></p>
+      </main>
+    </div>
+
+    <section class="memory" id="memory">
+      <h2>Memória de cálculo da linha</h2>
+      <p id="memoryEmpty">Selecione um departamento, seção, grupo ou subgrupo para ver a composição da margem.</p>
+      <div id="memoryBody" class="memory-body hidden"></div>
+    </section>
+  </div>
+  <div class="toast" id="toast" hidden></div>
+  <script src="js/data.js" charset="utf-8"></script>
+  <script src="js/app.js" charset="utf-8"></script>
+</body>
+</html>
