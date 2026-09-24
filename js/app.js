@@ -677,7 +677,7 @@
         '<td class="num"><span class="badge ' + gapClass(g.gap) + '">' + (g.gap >= 0 ? "+" : "") + pct(g.gap) + "</span></td>" +
         '<td class="num ' + (g.impacto < 0 ? "neg" : "pos") + '">' + brl(g.impacto) + "</td></tr>";
     }).join("");
-    els.foot.textContent = grouped.length + " linhas | " + rows.length + " subgrupos | Clique para aprofundar | Edite A carregar e use Salvar alterações (Ctrl+S) para o Excel";
+    els.foot.textContent = grouped.length + " linhas | " + rows.length + " subgrupos | Clique para aprofundar | A carregar atualiza na hora e desce a cadeia pela venda";
   }
 
   function renderMemory(row) {
@@ -708,7 +708,7 @@
       "<p>Exclusões ativas: Não revenda e sacola reciclável. Sem visão por loja nesta versão.</p></div>";
   }
 
-  function paint() {
+  function paint(opts) {
     persist();
     renderLojas();
     renderKpis();
@@ -716,6 +716,17 @@
     renderCrumbs();
     renderGrid();
     renderSaveBtn();
+    if (opts && opts.focusKey) {
+      const want = opts.focusKey;
+      const inp = Array.prototype.find.call(els.body.querySelectorAll(".cell-edit"), function (el) {
+        return el.dataset.key === want;
+      });
+      if (inp) {
+        inp.focus();
+        if (opts.focusVal != null) inp.value = opts.focusVal;
+        try { inp.select(); } catch (_) {}
+      }
+    }
     if (state.selected) {
       const s = state.selected;
       const rows = clusterRows().filter((r) => r.n1 === s.n1 && (!s.n2 || r.n2 === s.n2) && (!s.n3 || r.n3 === s.n3) && (!s.n4 || r.n4 === s.n4));
@@ -739,9 +750,11 @@
     });
   }
 
-  function markSimDirty() {
-    const btn = document.getElementById("btnRecalc");
-    if (btn) btn.classList.add("pending");
+  let simTimer = null;
+  function scheduleSimPaint() {
+    applySimFromInputs();
+    if (simTimer) clearTimeout(simTimer);
+    simTimer = setTimeout(function () { paint(); }, 80);
   }
 
   function applySimFromInputs() {
@@ -764,9 +777,10 @@
     const range = document.getElementById(idRange);
     const num = document.getElementById(idNum);
     const set = function (v) {
+      if (!Number.isFinite(v)) return;
       range.value = v;
       num.value = Number(v).toFixed(2);
-      markSimDirty();
+      scheduleSimPaint();
     };
     range.addEventListener("input", function () { set(Number(range.value)); });
     num.addEventListener("input", function () { set(Number(num.value)); });
@@ -791,14 +805,14 @@
   if (fluxoEl) {
     fluxoEl.checked = state.sim.protegerFluxo !== false;
     fluxoEl.addEventListener("change", function () {
-      markSimDirty();
+      scheduleSimPaint();
     });
   }
   const pisoBox = document.getElementById("simPiso");
   if (pisoBox) {
     pisoBox.checked = state.sim.antiRegressao !== false;
     pisoBox.addEventListener("change", function () {
-      markSimDirty();
+      scheduleSimPaint();
     });
   }
 
@@ -882,12 +896,8 @@
     }
   });
 
-  els.body.addEventListener("change", function (e) {
-    if (!e.target.classList.contains("cell-edit")) return;
-    const tr = e.target.closest("tr");
-    const margem = Number(e.target.value) / 100;
-    if (!Number.isFinite(margem) || !tr) return;
-    const kids = linhasAtivas().filter(function (r) {
+  function kidsFromTr(tr) {
+    return linhasAtivas().filter(function (r) {
       if (r.cluster !== state.cluster) return false;
       if (r.n1 !== tr.dataset.n1) return false;
       if (tr.dataset.n2 && r.n2 !== tr.dataset.n2) return false;
@@ -895,11 +905,62 @@
       if (tr.dataset.nivel === "n4" && tr.dataset.n4 && r.n4 !== tr.dataset.n4) return false;
       return true;
     });
-    kids.forEach(function (r) {
-      const key = r.cluster + "|" + r.n1 + "|" + r.n2 + "|" + r.n3 + "|" + r.n4;
-      state.sim.overrides[key] = Object.assign({}, state.sim.overrides[key] || {}, { margem: margem });
+  }
+
+  function applyMargemNoRecorte(tr, novaMargem) {
+    const kids = kidsFromTr(tr);
+    if (!kids.length || !Number.isFinite(novaMargem)) return 0;
+    const atuais = {};
+    allEnriched().forEach(function (r) {
+      if (r.cluster === state.cluster) atuais[r.key] = r.carregar;
     });
-    paint();
+    let venda = 0;
+    let pond = 0;
+    kids.forEach(function (r) {
+      const k = rowKey(r);
+      const base = atuais[k] != null ? atuais[k] : (r.margemReal || 0);
+      venda += r.venda || 0;
+      pond += base * (r.venda || 0);
+    });
+    const atual = venda ? pond / venda : novaMargem;
+    const delta = novaMargem - atual;
+    kids.forEach(function (r) {
+      const k = rowKey(r);
+      const base = atuais[k] != null ? atuais[k] : (r.margemReal || 0);
+      state.sim.overrides[k] = Object.assign({}, state.sim.overrides[k] || {}, { margem: base + delta });
+    });
+    return kids.length;
+  }
+
+  let editTimer = null;
+  function commitCellEdit(input) {
+    const tr = input.closest("tr");
+    const margem = Number(String(input.value).replace(",", ".")) / 100;
+    if (!Number.isFinite(margem) || !tr) return;
+    applyMargemNoRecorte(tr, margem);
+    paint({ focusKey: input.dataset.key, focusVal: (margem * 100).toFixed(2) });
+  }
+
+  els.body.addEventListener("input", function (e) {
+    if (!e.target.classList.contains("cell-edit")) return;
+    const input = e.target;
+    if (editTimer) clearTimeout(editTimer);
+    editTimer = setTimeout(function () { commitCellEdit(input); }, 350);
+  });
+
+  els.body.addEventListener("change", function (e) {
+    if (!e.target.classList.contains("cell-edit")) return;
+    if (editTimer) clearTimeout(editTimer);
+    commitCellEdit(e.target);
+  });
+
+  els.body.addEventListener("keydown", function (e) {
+    if (!e.target.classList.contains("cell-edit")) return;
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (editTimer) clearTimeout(editTimer);
+      commitCellEdit(e.target);
+    }
   });
 
   document.getElementById("btnReset").addEventListener("click", function () {
