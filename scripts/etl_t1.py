@@ -86,8 +86,26 @@ def load_existing() -> dict:
     return json.loads(text)
 
 
+def financeira_excedente_loja_01(dre: dict) -> float:
+    """Financeira da loja 01 acima da taxa das demais lojas, em R$."""
+    outros_fin = outros_rec = 0.0
+    fin_01 = rec_01 = 0.0
+    for loja in dre.get("lojas", []):
+        rec = float(loja.get("receita_venda_devolucao") or 0)
+        fin = abs(float(loja.get("desp_financeira") or 0))
+        if str(loja.get("codigo")) == "01":
+            fin_01, rec_01 = fin, rec
+        else:
+            outros_fin += fin
+            outros_rec += rec
+    if not outros_rec or not rec_01:
+        return 0.0
+    return max(0.0, fin_01 - (outros_fin / outros_rec) * rec_01)
+
+
 def dre_despesas() -> dict[str, float]:
     dre = json.loads(DRE_JSON.read_text(encoding="utf-8"))
+    excesso = financeira_excedente_loja_01(dre)
     acc = {"A": {"desp": 0.0, "rec": 0.0}, "B": {"desp": 0.0, "rec": 0.0}}
     for loja in dre["lojas"]:
         cl = CLUSTER.get(loja["codigo"])
@@ -95,6 +113,8 @@ def dre_despesas() -> dict[str, float]:
             continue
         rec = float(loja.get("receita_venda_devolucao") or 0)
         desp = abs(float(loja.get("total_despesas") or 0))
+        if str(loja.get("codigo")) == "01":
+            desp = max(0.0, desp - excesso)
         acc[cl]["rec"] += rec
         acc[cl]["desp"] += desp
     return {

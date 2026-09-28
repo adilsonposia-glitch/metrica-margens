@@ -9,9 +9,14 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "js" / "data.js"
 
-BACKOFFICE_VALOR = 9_623_706.0
+# Financeira excedente da loja 01 no DRE T1 (R$ 2.227.172,11):
+# o que passa da taxa das outras 12 lojas. Sai da despesa do cluster A
+# e entra no backoffice, rateado pela venda da empresa.
+EXCEDENTE_FIN_LOJA_01 = 2_227_172.11
+BACKOFFICE_VALOR = 9_623_706.0 + EXCEDENTE_FIN_LOJA_01
 LUCRO_ALVO = 0.04
-DESPESA = {"A": 0.2309, "B": 0.1720}
+# 0,2309 historico menos o excedente / venda T2 do cluster A.
+DESPESA = {"A": 0.210181, "B": 0.1720}
 
 LOJAS = {
     "A": [

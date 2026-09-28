@@ -5,7 +5,7 @@
     return;
   }
 
-  const STORE_KEY = "metrica-margens-sim-v4";
+  const STORE_KEY = "metrica-margens-sim-v5";
   const state = {
     cluster: "A",
     periodo: "T2",
@@ -620,6 +620,12 @@
       " histórico. O percentual é o mesmo para todas as lojas; o R$ rateia pela participação na venda. Perda histórica A " + pct(PERDA_HIST.A) + " | B " + pct(PERDA_HIST.B) + ". Fluxo (Bovinos): 45% da despesa de loja e 25% do lucro. Piso: se a proposta ficar abaixo do realizado, carrega realizado + 2 p.p.; o excedente baixa o gerador de tráfego da seção (leite UHT, óleo de soja, arroz branco e feijão), sem perder competitividade.";
     const notaPerda = metaPeriodo().notaPerda;
     if (notaPerda) els.boNote.textContent += " " + notaPerda;
+    var rx = DATA.meta.reclassFinanceira;
+    if (rx && rx.excedente) {
+      els.boNote.textContent += " Reclassifica\u00e7\u00e3o: R$ " +
+        Number(rx.excedente).toLocaleString("pt-BR") +
+        " de financeira excedente da loja 01 sa\u00edram da despesa do cluster A e entraram no back office.";
+    }
   }
 
   function renderCrumbs() {
