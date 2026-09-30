@@ -295,6 +295,25 @@ h1 {
 
 .kpi.good { border-color: #c5d9cc; }
 
+.kpi.perda {
+  background: #fbf4f2;
+  border-color: #efd8d4;
+}
+
+.kpi.perda .val {
+  color: #a33d3d;
+  animation: perda-pulso 2.6s ease-in-out infinite;
+}
+
+@keyframes perda-pulso {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px) scale(1.035); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kpi.perda .val { animation: none; }
+}
+
 .neg { color: var(--below); }
 
 .pos { color: var(--ok); }

@@ -588,10 +588,10 @@
       { lbl: "Margem proposta", val: pct(cluster.proposta), sub: "Perda + desp. + BO + lucro" },
       { lbl: "A carregar", val: pct(cluster.carregar), sub: view.venda !== cluster.venda ? "Recorte " + pct(view.carregar) : "Após simulação" },
       { lbl: "Gap vs realizado", val: (cluster.carregar - cluster.real >= 0 ? "+" : "") + pct(cluster.carregar - cluster.real), sub: brl(cluster.impacto), alert: cluster.carregar - cluster.real > 0.01, good: Math.abs(cluster.carregar - cluster.real) <= 0.01 },
-      { lbl: "Perda / venda", val: pct(cluster.perdaPct), sub: brl(cluster.perdaAbs) },
+      { lbl: "Perda / venda", val: pct(cluster.perdaPct), sub: brl(cluster.perdaAbs), perda: true },
     ];
     els.kpis.innerHTML = cards.map((c, i) =>
-      '<article class="kpi ' + (c.alert ? "alert" : "") + " " + (c.good ? "good" : "") + '" style="animation-delay:' + (i * 40) + 'ms">' +
+      '<article class="kpi ' + (c.perda ? "perda " : "") + (c.alert ? "alert " : "") + (c.good ? "good" : "") + '" style="animation-delay:' + (i * 40) + 'ms">' +
       '<div class="lbl">' + c.lbl + "</div>" +
       '<div class="val">' + c.val + "</div>" +
       '<div class="sub">' + c.sub + "</div></article>"
