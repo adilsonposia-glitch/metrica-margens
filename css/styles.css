@@ -455,7 +455,7 @@ input[type="number"], input[type="search"], select {
 
 .table-wrap { overflow: auto; max-height: 62vh; }
 
-.grid { width: 100%; min-width: 960px; border-collapse: collapse; font-size: 13px; }
+.grid { width: 100%; min-width: 1080px; border-collapse: collapse; font-size: 13px; }
 
 .grid th {
 
@@ -486,6 +486,12 @@ input[type="number"], input[type="search"], select {
 .grid tbody tr:hover { background: #f7f3ea; }
 
 .grid tbody tr.selected { background: #e7f0e4; }
+
+.grid tbody tr.subtotal { background: #efe6d4; font-weight: 600; }
+
+.grid tbody tr.subtotal td { border-bottom-color: #e2d5bc; }
+
+.grid td.nome-filho { padding-left: 28px; }
 
 .num { text-align: right; font-variant-numeric: tabular-nums; }
 

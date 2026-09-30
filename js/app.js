@@ -647,43 +647,180 @@
     return String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
   }
 
+  function indexVenda(rows, fields) {
+    const map = {};
+    rows.forEach(function (r) {
+      const k = fields.map(function (f) { return r[f]; }).join("|");
+      map[k] = (map[k] || 0) + (r.venda || 0);
+    });
+    return map;
+  }
+
   function renderGrid() {
     const rows = clusterRows();
-    const tot = totals(rows);
     const grouped = aggregate(rows, state.nivel);
-    const maxVenda = grouped[0] ? grouped[0].venda : 1;
-    els.body.innerHTML = grouped.map((g) => {
-      const t = titleOf(g);
-      const part = tot.venda ? g.venda / tot.venda : 0;
-      const editable = true;
-      const key = g.cluster + "|" + g.n1 + "|" + g.n2 + "|" + g.n3 + "|" + g.n4;
-      const mercado = state.mercado[g.n4] || state.mercado[key];
-      const mercadoTxt = mercado != null ? " | mercado " + pct(mercado) : "";
-      const editado = g.alterados ? " | editado" : "";
-      const pisoTxt = g.pisoN ? " | piso +2 p.p. em " + g.pisoN + " subgrupo" + (g.pisoN > 1 ? "s" : "") : "";
-      const trafegoTxt = g.trafegoNomes && g.trafegoNomes.length ? " | tráfego: " + g.trafegoNomes.slice(0, 2).join(", ") : "";
+    const universo = allEnriched().filter(function (r) { return r.cluster === state.cluster; });
+    const vendaSecao = indexVenda(universo, ["n1", "n2"]);
+    const vendaGrupo = indexVenda(universo, ["n1", "n2", "n3"]);
+    const maxVenda = grouped.reduce(function (m, g) { return g.venda > m ? g.venda : m; }, 1);
+
+    function partGrupoSecao(n1, n2, n3) {
+      const vSec = vendaSecao[n1 + "|" + n2] || 0;
+      const vGr = vendaGrupo[n1 + "|" + n2 + "|" + n3] || 0;
+      return vSec ? vGr / vSec : 0;
+    }
+
+    function partSubgrupoGrupo(g) {
+      const vGr = vendaGrupo[g.n1 + "|" + g.n2 + "|" + g.n3] || 0;
+      return vGr ? g.venda / vGr : 0;
+    }
+
+    function linhaHtml(opts) {
+      const g = opts.g;
+      const t = opts.title;
+      const key = opts.key;
+      const papelCls = opts.papelCls;
+      const papelLbl = opts.papelLbl;
+      const nomeCls = opts.filho ? " class=\"nome-filho\"" : "";
+      const subtotalAttr = opts.subtotal ? " data-subtotal=\"1\" class=\"subtotal\"" : "";
+      const carregarCell = '<input class="cell-edit" type="number" step="0.05" value="' + (opts.carregar * 100).toFixed(2) + '" data-key="' + esc(key) + '" />';
+      const unitTxt = opts.unit == null ? "\u2014" : opts.unit.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      return '<tr role="button" tabindex="0"' + subtotalAttr + ' data-n1="' + esc(g.n1) + '" data-n2="' + esc(g.n2) + '" data-n3="' + esc(g.n3) + '" data-n4="' + esc(g.n4 || "") + '" data-nivel="' + opts.nivel + '" data-papel="' + esc(opts.papel) + '" data-key="' + esc(key) + '">' +
+        "<td" + nomeCls + "><div class='name'>" + t.name + "</div><small>" + t.sub + "</small>" +
+        "<div class='bar'><i style='width:" + ((opts.venda / maxVenda) * 100) + "%'></i></div></td>" +
+        '<td><span class="papel ' + papelCls + '">' + papelLbl + "</span></td>" +
+        '<td class="num">' + brl(opts.venda) + "</td>" +
+        '<td class="num">' + (opts.pSecao == null ? "\u2014" : pct(opts.pSecao)) + "</td>" +
+        '<td class="num">' + (opts.pGrupo == null ? "\u2014" : pct(opts.pGrupo)) + "</td>" +
+        '<td class="num">' + unitTxt + "</td>" +
+        '<td class="num">' + pct(opts.perdaPct) + "</td>" +
+        '<td class="num">' + pct(opts.real) + "</td>" +
+        '<td class="num">' + pct(opts.proposta) + "</td>" +
+        '<td class="num">' + carregarCell + "</td>" +
+        '<td class="num"><span class="badge ' + gapClass(opts.gap) + '">' + (opts.gap >= 0 ? "+" : "") + pct(opts.gap) + "</span></td>" +
+        '<td class="num ' + (opts.impacto < 0 ? "neg" : "pos") + '">' + brl(opts.impacto) + "</td></tr>";
+    }
+
+    function papelDe(g) {
       let papelCls = g.papel;
-      let papelLbl = g.papel === "fluxo" ? "Fluxo" : g.papel === "lucro" ? "Giro" : g.papel === "misto" ? "Misto" : "Equilíbrio";
+      let papelLbl = g.papel === "fluxo" ? "Fluxo" : g.papel === "lucro" ? "Giro" : g.papel === "misto" ? "Misto" : "Equil\u00edbrio";
       if (g.nivel === "n4" && g.trafegoN && g.papel !== "fluxo") {
         papelCls = "trafego";
-        papelLbl = "Tráfego";
+        papelLbl = "Tr\u00e1fego";
       }
-      const carregarCell = '<input class="cell-edit" type="number" step="0.05" value="' + (g.carregar * 100).toFixed(2) + '" data-key="' + esc(key) + '" />';
-      return '<tr role="button" tabindex="0" data-n1="' + esc(g.n1) + '" data-n2="' + esc(g.n2) + '" data-n3="' + esc(g.n3) + '" data-n4="' + esc(g.n4) + '" data-nivel="' + g.nivel + '" data-papel="' + esc(g.papel) + '" data-key="' + esc(key) + '">' +
-        "<td><div class='name'>" + esc(t.name) + editado + pisoTxt + trafegoTxt + "</div><small>" + esc(t.sub) + mercadoTxt + "</small>" +
-        "<div class='bar'><i style='width:" + ((g.venda / maxVenda) * 100) + "%'></i></div></td>" +
-        '<td><span class="papel ' + papelCls + '">' + papelLbl + "</span></td>" +
-        '<td class="num">' + brl(g.venda) + "</td>" +
-        '<td class="num">' + pct(part) + "</td>" +
-        '<td class="num">' + g.unit.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "</td>" +
-        '<td class="num">' + pct(g.perdaPct) + "</td>" +
-        '<td class="num">' + pct(g.real) + "</td>" +
-        '<td class="num">' + pct(g.proposta) + "</td>" +
-        '<td class="num">' + carregarCell + "</td>" +
-        '<td class="num"><span class="badge ' + gapClass(g.gap) + '">' + (g.gap >= 0 ? "+" : "") + pct(g.gap) + "</span></td>" +
-        '<td class="num ' + (g.impacto < 0 ? "neg" : "pos") + '">' + brl(g.impacto) + "</td></tr>";
-    }).join("");
-    els.foot.textContent = grouped.length + " linhas | " + rows.length + " subgrupos | Clique para aprofundar | A carregar atualiza na hora e desce a cadeia pela venda";
+      return { papelCls: papelCls, papelLbl: papelLbl };
+    }
+
+    let html = "";
+    if (state.nivel === "n4") {
+      const byGrupo = new Map();
+      grouped.forEach(function (g) {
+        const k = g.n1 + "|" + g.n2 + "|" + g.n3;
+        if (!byGrupo.has(k)) byGrupo.set(k, []);
+        byGrupo.get(k).push(g);
+      });
+      const blocos = Array.from(byGrupo.values()).map(function (kids) {
+        const head = kids[0];
+        const membros = universo.filter(function (r) {
+          return r.n1 === head.n1 && r.n2 === head.n2 && r.n3 === head.n3;
+        });
+        const totG = totals(membros);
+        return {
+          head: head,
+          kids: kids.slice().sort(function (a, b) { return b.venda - a.venda; }),
+          totG: totG,
+          pSecao: partGrupoSecao(head.n1, head.n2, head.n3)
+        };
+      }).sort(function (a, b) { return b.totG.venda - a.totG.venda; });
+      blocos.forEach(function (bloco) {
+        const head = bloco.head;
+        const key = head.cluster + "|" + head.n1 + "|" + head.n2 + "|" + head.n3 + "|";
+        html += linhaHtml({
+          g: { n1: head.n1, n2: head.n2, n3: head.n3, n4: "" },
+          title: {
+            name: esc(head.n3),
+            sub: esc(head.n2) + " \u00b7 subtotal do grupo"
+          },
+          key: key,
+          papelCls: "equilibrio",
+          papelLbl: "Grupo",
+          papel: "misto",
+          nivel: "n3",
+          subtotal: true,
+          venda: bloco.totG.venda,
+          pSecao: bloco.pSecao,
+          pGrupo: null,
+          unit: null,
+          perdaPct: bloco.totG.perdaPct,
+          real: bloco.totG.real,
+          proposta: bloco.totG.proposta,
+          carregar: bloco.totG.carregar,
+          gap: bloco.totG.carregar - bloco.totG.real,
+          impacto: bloco.totG.impacto
+        });
+        bloco.kids.forEach(function (g) {
+          const t = titleOf(g);
+          const pap = papelDe(g);
+          const key = g.cluster + "|" + g.n1 + "|" + g.n2 + "|" + g.n3 + "|" + g.n4;
+          const mercado = state.mercado[g.n4] || state.mercado[key];
+          const extra = (g.alterados ? " | editado" : "") +
+            (g.pisoN ? " | piso +2 p.p." : "") +
+            (g.trafegoNomes && g.trafegoNomes.length ? " | tr\u00e1fego" : "") +
+            (mercado != null ? " | mercado " + pct(mercado) : "");
+          html += linhaHtml({
+            g: g,
+            title: { name: esc(t.name), sub: esc(t.sub) + extra },
+            key: key,
+            papelCls: pap.papelCls,
+            papelLbl: pap.papelLbl,
+            papel: g.papel,
+            nivel: "n4",
+            filho: true,
+            venda: g.venda,
+            pSecao: bloco.pSecao,
+            pGrupo: partSubgrupoGrupo(g),
+            unit: g.unit,
+            perdaPct: g.perdaPct,
+            real: g.real,
+            proposta: g.proposta,
+            carregar: g.carregar,
+            gap: g.gap,
+            impacto: g.impacto
+          });
+        });
+      });
+    } else {
+      html = grouped.map(function (g) {
+        const t = titleOf(g);
+        const pap = papelDe(g);
+        const key = g.cluster + "|" + g.n1 + "|" + g.n2 + "|" + g.n3 + "|" + g.n4;
+        const pSecao = (state.nivel === "n3") ? partGrupoSecao(g.n1, g.n2, g.n3) : null;
+        return linhaHtml({
+          g: g,
+          title: { name: esc(t.name), sub: esc(t.sub) },
+          key: key,
+          papelCls: pap.papelCls,
+          papelLbl: pap.papelLbl,
+          papel: g.papel,
+          nivel: g.nivel,
+          venda: g.venda,
+          pSecao: pSecao,
+          pGrupo: null,
+          unit: g.unit,
+          perdaPct: g.perdaPct,
+          real: g.real,
+          proposta: g.proposta,
+          carregar: g.carregar,
+          gap: g.gap,
+          impacto: g.impacto
+        });
+      }).join("");
+    }
+    els.body.innerHTML = html;
+    els.foot.textContent = (state.nivel === "n4"
+      ? "Subtotal do grupo mostra o peso dele na se\u00e7\u00e3o. Cada subgrupo mostra o peso dele no grupo. "
+      : "") +
+      grouped.length + " linhas | " + rows.length + " subgrupos | Clique para aprofundar | A carregar atualiza na hora e desce a cadeia pela venda";
   }
 
   function renderMemory(row) {
@@ -892,6 +1029,7 @@
       trafegoNomes: t.trafegoNomes || [],
     };
     renderMemory(state.selected);
+    if (tr.dataset.subtotal === "1") return;
     const nivel = tr.dataset.nivel;
     if (nivel !== "n4") {
       const order = ["n1", "n2", "n3", "n4"];
